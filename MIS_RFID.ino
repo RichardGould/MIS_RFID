@@ -1,8 +1,8 @@
 /* Men in Sheds RFID ID Verification  */
 /*
   Version:    	1.0
-  Date:      	1/11/2024
-  Latest Edit:  7/12/2024 22:30
+  Date:      	  1/11/2024
+  Latest Edit:  9/12/2024 13:30
 */
 
 /* Library Includes */
@@ -228,7 +228,7 @@ void MQTT_CB( char * topic, byte * payload, uint8_t length )
 	Serial.println( MQTT_in_buffer );
 
 	strcpy( Old_message, MQTT_in_buffer );
-  payload_time = millis();
+	payload_time = millis();
 	return;
 }
 
@@ -323,9 +323,11 @@ void setup() {
 	client.setServer( MQTT_server, MQTT_port );
 	client.setCallback( MQTT_CB );
 
-	client.subscribe( MiS_MY_MSG );      // message from broker for me
-	client.subscribe( MiS_MSG );         // global message
-	client.subscribe( MiS_RESET );       // reset wemo
+	rtn = client.subscribe( MiS_MY_MSG, 1 );      // message from broker for me
+	rtn = client.subscribe( MiS_MSG, 1 );         // global message
+	rtn = client.subscribe( MiS_RESET, 1 );       // reset wemo
+	rtn = client.subscribe( MiS_LCD, 1 );		 // LCD Commands
+    client.loop();
 /*  RFID setup  */
 	mfrc522.PCD_Init();
 	epoch = millis();
@@ -362,7 +364,7 @@ int fn_RFID()
 	if ( !client.connected() ) fn_MQTT_Connect();
 
 /*	publish <UID> to MQTTT  */
-	client.publish( PUB_TOPIC, PUB_message, false );
+	client.publish( PUB_TOPIC, ( const uint8_t *  ) PUB_message, strlen( PUB_message ), false );
 
 	Serial.print( "Published Topic : " );
 	Serial.print( PUB_TOPIC );
@@ -376,7 +378,7 @@ int fn_RFID()
 	Serial.print( "Subscription : " );
 	Serial.println( SUB_TOPIC );
   
-	client.subscribe( SUB_TOPIC );
+	client.subscribe( SUB_TOPIC, 1 );
 
 	fn_Display( 1, 2, 0, "** Await Resp **" );
 
@@ -443,15 +445,15 @@ void loop() {
 	pulse = millis();
 	if ( line[ 2 ] == 0 ) fn_Display( 1, 2, 0, "** Ready **" );
 
-	if ( pulse > ( epoch ) + ( 10 * 60 * 1000 )	)		// 10 minutes
+	if ( pulse > ( epoch ) + ( 10 * 60 * 1000 )	)		//  10 minutes
 	{
 		Serial.println( "Subscribing to other topics" );
-    client.subscribe( MiS_MY_MSG );      // message from broker for me
-		client.subscribe( MiS_MSG );         // global message
-		client.subscribe( MiS_RESET );       // reset wemo
-		client.subscribe( MiS_LCD );		 // LCD Commands
+		rtn = client.subscribe( MiS_MY_MSG, 1 );      // message from broker for me
+		rtn = client.subscribe( MiS_MSG, 1 );         // global message
+		rtn = client.subscribe( MiS_RESET, 1 );       // reset wemo
+		rtn = client.subscribe( MiS_LCD, 1 );		 // LCD Commands
 		epoch = millis();
-		fn_title();							//  refresh screen every 10 minutes
+		//fn_title();									//  refresh screen every 10 minutes
 	}
 
 	if ( ! client.connected() ) fn_MQTT_Connect();

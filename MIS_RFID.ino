@@ -1,8 +1,8 @@
 /* Men in Sheds RFID ID Verification  */
 /*
   Version:    	1.0
-  Date:      	  1/11/2024
-  Latest Edit:  9/12/2024 13:30
+  Date:      	1/11/2024
+  Latest Edit:  21/12/2024 15:00
 */
 
 /* Library Includes */
@@ -35,8 +35,8 @@
 /*  variable instantiation  */
 
 /*  Network Credentials */
-const char * Home_WiFi = "GOULDWAN24";
-char Home_Pass[ 20 ]   = "Tgkf2;47cd";
+const char * Home_WiFi = "GOULD_TP";
+char Home_Pass[ 20 ]   = "pr`rxgvx";
 const char * Home_MQTT = "192.168.1.180";
 
 const char * MiS_WiFi  = "BTB-NTCHT6";
@@ -47,14 +47,18 @@ const char * Jim_WiFi  = "BT-S7AT5Q";
 char Jim_Pass[ 20 ]    = "vHqbS8{:YqKX@q";
 const char * Jim_MQTT  = "192.168.1.165";
 
+const char * Rich_WiFi = "GOULDWAN24";
+char Rich_Pass[ 20 ]   = "Tgkf2;47cd";
+const char * Rich_MQTT = "192.168.1.180";
+
 //const char * LCD_Title = "MiS Tag Identity";
 const char * MiS_TOPIC  = "MiS";
-const char * MiS_DEVICE = "RFID_1";
-const char * PUB_TOPIC  = "MiS/RFID_1/IN";
-const char * SUB_TOPIC  = "MiS/RFID_1/OUT";
-const char * MiS_MY_MSG = "MiS/RFID_1/MSG";
+const char * MiS_DEVICE = "RFID_3";
+const char * PUB_TOPIC  = "MiS/RFID_3/IN";
+const char * SUB_TOPIC  = "MiS/RFID_3/OUT";
+const char * MiS_MY_MSG = "MiS/RFID_3/MSG";
 const char * MiS_MSG    = "MiS/MSG";
-const char * MiS_RESET  = "MiS/RFID_1/RESET";
+const char * MiS_RESET  = "MiS/RFID_3/RST";
 const char * MiS_LCD    = "MiS/LCD";
 
 char MQTT_server[ 20 ], my_salut[ 20 ], my_member[ 20 ];
@@ -68,7 +72,9 @@ char my_IP_Address[ 20 ];         //  xxx.xxx.xxx.xxx
 char LCD_Title[ 20 ], LCD_Ready[ 20 ];
 int MQTT_in_flag, MQTT_in_length;
 unsigned long epoch, pulse, payload_time;
-int rtn, line[ LCD_lines ], count;
+int rtn, first, line[ LCD_lines ], count;
+
+  int network, networks, my_network;
 
 /*  Instance creation */
 
@@ -84,39 +90,50 @@ PubSubClient client( espClient );           	// MQTT
 
 /*  Scan WiFi for networks  */
 int fn_WiFiScan() {
-	int network, networks, my_network;
+
+//  int network, networks, my_network;
 	WiFi.disconnect();
 	delay( 2000 );
 	my_network = -1;
 	networks = WiFi.scanNetworks();
+  delay( 1000 );
 	Serial.print( "Networks seen : " );
 	Serial.println( networks );
+  delay( 1000 );
 	if ( networks == 0 )
 	{
-		delay( 60000 );
+			fn_Display( 1, 3, 0, "Restarting" );
+      delay( 60000 );
 		ESP.restart();
 	}
 	for ( network = 0; network < networks; network++ )
 	{
+    if ( strcmp( WiFi.SSID( network ).c_str(), Rich_WiFi ) == 0 )
+		{
+      strcpy( WiFi_Pass, Rich_Pass );
+			strcpy( MQTT_server, Rich_MQTT );
+			return ( network );
+		}
 		if ( strcmp( WiFi.SSID( network ).c_str(), Home_WiFi ) == 0 )
 		{
-			strcpy( WiFi_Pass, Home_Pass );
+      strcpy( WiFi_Pass, Home_Pass );
 			strcpy( MQTT_server, Home_MQTT );
 			return ( network );
 		}
 		if ( strcmp( WiFi.SSID( network ).c_str(), MiS_WiFi ) == 0 )
 		{
-			strcpy( WiFi_Pass, MiS_Pass );
+      strcpy( WiFi_Pass, MiS_Pass );
 			strcpy( MQTT_server, MiS_MQTT );
 			return ( network );
 		}
 		if ( strcmp( WiFi.SSID( network ).c_str(), Jim_WiFi ) == 0 )
 		{
-			strcpy( WiFi_Pass, Jim_Pass );
+      strcpy( WiFi_Pass, Jim_Pass );
 			strcpy( MQTT_server, Jim_MQTT );
 			return ( network );
 		}
 	}
+  fn_Display( 1, 3, 0, "Restarting" );
 	delay( 60000 );
 	ESP.restart();
 	return ( -1 );
@@ -129,10 +146,8 @@ int fn_WiFi_Connect( int network )
 	fn_Display( 1, 3, 0, "Connecting" );
 	delay( 2000 );
 	WiFi.begin( WiFi.SSID( network ), WiFi_Pass );
-//  Serial.print( "Network : " );
-//  Serial.print( WiFi.SSID( network ) );
-//  Serial.print( " : Password : " );
-//  Serial.println( WiFi_Pass );
+  Serial.print( "Network : " );
+  Serial.println( WiFi.SSID( network ) );
 
 	while ( i < 10 )
 	{
@@ -197,6 +212,7 @@ void MQTT_CB( char * topic, byte * payload, uint8_t length )
 	int i;
 	memset( MQTT_in_topic,  0, sizeof( MQTT_in_topic  ) );
 	memset( MQTT_in_buffer, 0, sizeof( MQTT_in_buffer ) );
+  Serial.println( "Message Received" );
 
 	MQTT_in_flag = 1;
 	strcpy( MQTT_in_topic, topic );
@@ -261,6 +277,7 @@ void setup() {
 	int i;
 	epoch = millis();                 //  start the clock
 	Serial.begin( 115200 );           //  Initialize serial communications with the PC
+
 	pinMode( GREEN, OUTPUT );         //  Green LED
 	pinMode( RED, OUTPUT );           //  Red LED
 	digitalWrite( GREEN, HIGH );      //  Off
@@ -275,15 +292,15 @@ void setup() {
 
 	fn_title();                       //  Title line on LCD2004
 
+  Serial.println( "" );
+
 	fn_Display( 1, 2, 0, "Network Search" );
 	//  decrypt passwords
 	
 	for ( i = 0; i < strlen( Home_Pass ); i++ ) Home_Pass[ i ] = Home_Pass[ i ] + 3 - i;
 	for ( i = 0; i < strlen( MiS_Pass  ); i++ ) MiS_Pass[ i ]  = MiS_Pass[ i ]  + 3 - i;
 	for ( i = 0; i < strlen( Jim_Pass  ); i++ ) Jim_Pass[ i ]  = Jim_Pass[ i ]  + 3 - i;
-
-  Serial.print( "Password : " );
-  Serial.println( Home_Pass );
+  for ( i = 0; i < strlen( Rich_Pass  ); i++ ) Rich_Pass[ i ]  = Rich_Pass[ i ]  + 3 - i;
 
 /*	Scan the WiFi */
 	int net = -1, res = -1;
@@ -308,13 +325,19 @@ void setup() {
 		if ( res != 0 )
 		{
 			delay( 1000 );
-			if ( count++ > 10 ) ESP.restart();   //  restart Wemo
+			if ( count++ > 10 ) 
+      {
+        			fn_Display( 1, 3, 0, "Restarting" );
+              ESP.restart();   //  restart Wemo
+      }
 		}
 	}
 	char my_IP_Address[ 20 ];
 	strcpy(  my_IP_Address, WiFi.localIP().toString().c_str() );
 	fn_Display( 1, 2, 0, "Network Found" );
 	fn_Display( 1, 3, 0, my_IP_Address );
+  Serial.print( "IP Address ~: " );
+  Serial.println( my_IP_Address );
 	delay( 3000 );
 	fn_Clear( 2 );
 	fn_Clear( 3 );
@@ -322,16 +345,13 @@ void setup() {
 /*  MQTT setup */
 	client.setServer( MQTT_server, MQTT_port );
 	client.setCallback( MQTT_CB );
-
-	rtn = client.subscribe( MiS_MY_MSG, 1 );      // message from broker for me
-	rtn = client.subscribe( MiS_MSG, 1 );         // global message
-	rtn = client.subscribe( MiS_RESET, 1 );       // reset wemo
-	rtn = client.subscribe( MiS_LCD, 1 );		 // LCD Commands
-    client.loop();
+  delay( 1000 );
+  client.loop();
 /*  RFID setup  */
 	mfrc522.PCD_Init();
 	epoch = millis();
 	fn_Display( 1, 2, 0, LCD_Ready );
+  delay( 5000 );
 	Serial.println( "Ready" );
 }
 
@@ -407,7 +427,7 @@ int fn_RFID()
 		return( -1 );
 	}
 
-//		MQTT broker response 12131415:Y:I:Richard or <UID>:Y:O:Richard or <UID>:N
+//		MQTT broker response 12131415:Y:W:Richard or <UID>:Y:B:Richard or <UID>:N
 
 	if ( MQTT_in_buffer[ 9 ] == 'N' )
 	{
@@ -417,7 +437,7 @@ int fn_RFID()
 		return ( -1 );
 	}
 
-	if ( MQTT_in_buffer[ 11 ] == 'I' )
+	if ( MQTT_in_buffer[ 11 ] == 'I' or MQTT_in_buffer[ 11 ] == 'W' )
 	{
 		sprintf( my_salut, "%s ", "Hi : " );
 	} else {
@@ -445,14 +465,20 @@ void loop() {
 	pulse = millis();
 	if ( line[ 2 ] == 0 ) fn_Display( 1, 2, 0, "** Ready **" );
 
-	if ( pulse > ( epoch ) + ( 10 * 60 * 1000 )	)		//  10 minutes
+	if ( first == 0 || pulse > ( epoch ) + ( 10 * 60 * 1000 )	)		//  10 minutes
 	{
-		Serial.println( "Subscribing to other topics" );
-		rtn = client.subscribe( MiS_MY_MSG, 1 );      // message from broker for me
-		rtn = client.subscribe( MiS_MSG, 1 );         // global message
-		rtn = client.subscribe( MiS_RESET, 1 );       // reset wemo
-		rtn = client.subscribe( MiS_LCD, 1 );		 // LCD Commands
-		epoch = millis();
+	  first = 1;
+    Serial.println( "Subscribing to other topics" );
+    if ( !client.connected() ) fn_MQTT_Connect();
+		client.subscribe( MiS_MY_MSG, 1 );      // message from broker for me
+//    delay( 2000 );
+		client.subscribe( MiS_MSG, 1 );         // global message
+//    delay( 2000 );
+    client.subscribe( MiS_RESET, 1 );       // reset wemo
+//    delay( 2000 );
+    client.subscribe( MiS_LCD, 1 );		 // LCD Commands
+//    delay( 2000 );
+    epoch = millis();
 		//fn_title();									//  refresh screen every 10 minutes
 	}
 
@@ -487,6 +513,7 @@ void loop() {
 			if ( strcmp( MQTT_in_buffer, "Yes" ) == 0 )
 			{
 				Serial.println( "Resetting Wemo ");
+        fn_Display( 1, 3, 0, "Restarting" );
 				ESP.restart();
 			}
 		}
